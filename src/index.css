@@ -2,10 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* index.css */
 body {
   background: radial-gradient(circle at top, #1a001f, #000000);
-  font-family: 'Plus Jakarta Sans', sans-serif; /* ADD THIS LINE */
-  color: white; /* Optional: ensures text is readable on the dark bg */
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased; /* This makes the font look "thinner" and sharper on Mac/iPhone */
+  -moz-osx-font-smoothing: grayscale;
+  color: white;
 }
 
 /* floating glow effect */

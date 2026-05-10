@@ -12,8 +12,9 @@ export default {
         brand: "#d946ef"
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-      },
+      // This stack gives you the Apple look immediately
+      sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+    },
     },
   },
 
