@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: radial-gradient(circle at top, #1a001f, #000000);
+}
+
+/* floating glow effect */
+
+.glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: #d946ef;
+  filter: blur(200px);
+  opacity: 0.25;
+}
+
+/* Quill editor dark mode fix */
+
+.ql-toolbar.ql-snow {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-bottom: none !important;
+  color: white;
+}
+
+.ql-container.ql-snow {
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  background: rgba(0,0,0,0.2);
+  color: white;
+}
+
+.ql-editor {
+  color: white;
+  min-height: 200px;
+}
+
+.ql-editor.ql-blank::before {
+  color: rgba(255,255,255,0.4) !important;
+  font-style: italic;
+}
+
+/* Toolbar icons */
+.ql-snow .ql-stroke {
+  stroke: white !important;
+}
+
+.ql-snow .ql-fill {
+  fill: white !important;
+}
+
+.ql-snow .ql-picker {
+  color: white !important;
+}
