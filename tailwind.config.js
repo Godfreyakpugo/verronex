@@ -1,7 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: "class",
-
   content: [
     "./index.html",
     "./src/**/*.{js,jsx}"
@@ -11,7 +10,10 @@ export default {
     extend: {
       colors: {
         brand: "#d946ef"
-      }
+      },
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+      },
     },
   },
 
