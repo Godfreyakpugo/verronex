@@ -124,7 +124,7 @@ function Navbar() {
             />
           </form>
           
-          /// Mobile Links
+          
           {navLinks.map((link) => (
             <Link
               key={link.name}
