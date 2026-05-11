@@ -1,22 +1,32 @@
+import { Link } from "react-router-dom";
+
 function Footer() {
   return (
-    <footer className="border-t border-white/10 mt-20">
-      <div className="max-w-7xl mx-auto px-6 py-10 text-center text-gray-400">
+    <footer className="bg-black border-t border-white/10 py-8 mt-12">
+  <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+    
+    {/* Store Info */}
+    <div className="text-white/50 text-sm">
+      <span className="font-bold text-white">Verronex</span> Premium Gadgets
+    </div>
 
-        <p className="text-fuchsia-500 font-semibold text-lg">
-          Verronex
-        </p>
+    {/* THE CAMOUFLAGED LINK */}
+    <div className="text-white/30 text-xs flex gap-2">
+      <span>© 2026 Verronex. All rights reserved.</span>
+      {/* 
+        This is the secret link. It looks like a tiny, dim dot "•" next to the copyright.
+        Customers will ignore it, but you know to click it.
+      */}
+      <Link 
+        to="/verronex-admin-secret" 
+        className="hover:text-fuchsia-500 transition duration-300"
+      >
+        •
+      </Link>
+    </div>
 
-        <p className="text-sm mt-2">
-          Premium gadgets for modern users
-        </p>
-
-        <p className="text-xs mt-4">
-          © 2026 Verronex. All rights reserved.
-        </p>
-
-      </div>
-    </footer>
+  </div>
+</footer>
   );
 }
 
