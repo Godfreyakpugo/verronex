@@ -149,6 +149,10 @@ const startEdit = (product) => {
   setOnSale(product.onSale);
   setDiscount(product.discount);
   setExistingImages(product.images || []);
+  setCapabilities(Array.isArray(product.capabilities) ? product.capabilities : [""]);
+  setLimitations(Array.isArray(product.limitations) ? product.limitations : [""]);
+  setStock(typeof product.stock === "number" ? product.stock : 1); // Ensure stock is set, preserve 0
+  // ...
   
   setShowForm(true); // Open the form
   window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll up to the form
@@ -360,8 +364,8 @@ const addField = (type) => {
       key={index}
       value={cap}
       onChange={(e) => handleArrayChange(index, e.target.value, 'cap')}
-      className="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white outline-none focus:border-emerald-500 transition"
-      placeholder="e.g. 4K Video Editing at 60fps"
+      className="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white"
+      placeholder="e.g. 4K Video Editing"
     />
   ))}
   <button 
@@ -373,48 +377,61 @@ const addField = (type) => {
   </button>
 </div>
 
+{/* LIMITATIONS (Red Section) - ADDED THIS PART */}
+<div className="space-y-4 pt-4">
+  <label className="text-xs font-bold text-red-500 uppercase tracking-widest">Limitations (What it can't do)</label>
+  {limitations.map((lim, index) => (
+    <input
+      key={index}
+      value={lim}
+      onChange={(e) => handleArrayChange(index, e.target.value, 'lim')}
+      className="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white outline-none focus:border-red-500 transition"
+      placeholder="e.g. No SD Card Slot"
+    />
+  ))}
+  <button 
+    type="button" 
+    onClick={() => addField('lim')}
+    className="text-xs text-red-400 hover:text-red-300 font-bold"
+  >
+    + Add Limitation
+  </button>
+</div>
+
  {/* SPEC BUILDER */}
         <div className="space-y-3 p-4 bg-black/20 rounded-xl border border-white/5">
-          <h3 className="font-bold text-sm text-white/70 uppercase">Product Specifications</h3>
-          
-          {/* Display added specs */}
-          <div className="grid grid-cols-2 gap-2">
-            {Object.entries(specs).map(([key, value]) => (
-              <div key={key} className="flex justify-between items-center bg-white/5 p-2 rounded border border-white/10 text-sm">
-                <span className="text-fuchsia-400 font-bold">{key}:</span>
-                <span className="text-white/80 ml-2 truncate">{value}</span>
-                <button 
-                  onClick={() => removeSpec(key)}
-                  className="ml-2 text-red-500 hover:text-red-400 font-bold px-2"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
+  <h3 className="font-bold text-sm text-white/70 uppercase">Product Specifications</h3>
+  
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    {Object.entries(specs).map(([key, value]) => (
+      <div key={key} className="flex justify-between items-center bg-white/5 p-2 rounded border border-white/10 text-sm">
+        <span className="text-fuchsia-400 font-bold truncate mr-2">{key}:</span>
+        <span className="text-white/80 truncate flex-1">{value}</span>
+        <button onClick={() => removeSpec(key)} className="ml-2 text-red-500 hover:text-red-400">×</button>
+      </div>
+    ))}
+  </div>
 
           {/* Add new spec inputs */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="e.g. RAM"
-              value={specKey}
-              onChange={(e) => setSpecKey(e.target.value)}
-              className="w-1/3 p-3 rounded-xl bg-white/5 border border-white/10 text-sm"
-            />
-            <input
-              type="text"
-              placeholder="e.g. 16GB Unified Memory"
-              value={specValue}
-              onChange={(e) => setSpecValue(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addSpec()}
-              className="flex-1 p-3 rounded-xl bg-white/5 border border-white/10 text-sm"
-            />
-            <Button onClick={addSpec} className="px-4 py-3 bg-white/10 hover:bg-white/20">
-              Add
-            </Button>
-          </div>
-        </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+    <input
+      type="text"
+      placeholder="Key (e.g. RAM)"
+      value={specKey}
+      onChange={(e) => setSpecKey(e.target.value)}
+      className="w-full sm:w-1/3 p-3 rounded-xl bg-white/5 border border-white/10 text-sm"
+    />
+    <input
+      type="text"
+      placeholder="Value (e.g. 16GB)"
+      value={specValue}
+      onChange={(e) => setSpecValue(e.target.value)}
+      onKeyDown={(e) => e.key === 'Enter' && addSpec()}
+      className="flex-1 p-3 rounded-xl bg-white/5 border border-white/10 text-sm"
+    />
+    <Button onClick={addSpec} className="w-full sm:w-auto px-4 py-3">Add</Button>
+  </div>
+</div>
 
 
 
@@ -519,30 +536,26 @@ const addField = (type) => {
         {products.length === 0 ? (
           <p className="text-white/50">No products found. Add one above.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map((product) => (
-              <GlassCard key={product.id} className="p-4 flex flex-col gap-4">
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  {products.map((product) => (
+    <GlassCard key={product.id} className="p-4 flex flex-col gap-4 overflow-hidden">
                 <div className="flex gap-4 items-center">
-                  {/* Image Thumbnail */}
-                  {product.images && product.images.length > 0 ? (
-                    <div className="flex gap-1">
- {product.images?.slice(0,3).map((img,i)=>(
-   <img key={i} src={img} className="w-16 h-16 rounded object-cover" />
- ))}
-</div>
-                  ) : (
-                    <div className="w-16 h-16 bg-white/5 rounded-lg border border-white/10 flex items-center justify-center text-xs text-white/40">
-                      No Img
-                    </div>
-                  )}
+                 {/* Image Thumbnail - Fixed width to prevent shrinking */}
+        <div className="flex-shrink-0">
+          {product.images && product.images.length > 0 ? (
+             <img src={product.images[0]} className="w-20 h-20 rounded-lg object-cover border border-white/10" />
+          ) : (
+            <div className="w-20 h-20 bg-white/5 rounded-lg border border-white/10 flex items-center justify-center text-[10px] text-white/40">No Img</div>
+          )}
+        </div>
 
-                  {/* Product Details */}
-                  <div>
-                    <h3 className="font-semibold text-lg leading-tight">{product.name}</h3>
-                    <p className="text-white/50 text-sm">{product.category}</p>
-                    <p className="font-bold text-green-400 mt-1">₦{product.price.toLocaleString()}</p>
-                  </div>
-                </div>
+        {/* Product Details - Added min-w-0 to prevent text overflow issues */}
+        <div className="min-w-0 flex-1">
+          <h3 className="font-semibold text-lg leading-tight truncate">{product.name}</h3>
+          <p className="text-white/50 text-sm truncate">{product.category}</p>
+          <p className="font-bold text-green-400 mt-1">₦{product.price.toLocaleString()}</p>
+        </div>
+      </div>
 
                 {/* Management Badges (We will add Edit/Delete buttons here next) */}
                {/* Management Section - Refactored for Responsiveness */}

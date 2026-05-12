@@ -59,3 +59,37 @@ body {
 .ql-snow .ql-picker {
   color: white !important;
 }
+
+/* Fix for Quill content wrapping */
+.prose, .ql-editor {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* Ensure bold text is actually bold within rich text */
+.prose strong {
+  font-weight: 700 !important;
+  color: inherit;
+}
+
+/* Fix for extra line gaps (Quill uses empty paragraphs for spacing) */
+.prose p {
+  min-height: 1em;
+}
+
+/* Fix for list formatting if you use bullets/numbers */
+.prose ul {
+  list-style-type: disc !important;
+  padding-left: 1.5em !important;
+}
+.prose ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5em !important;
+}
+
+/* Fix for the horizontal scrolling issue we discussed earlier */
+.prose {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}

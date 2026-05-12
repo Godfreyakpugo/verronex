@@ -177,12 +177,15 @@ const handleAddToCart = () => {
           
           {/* Marketing Description */}
             {product.description && (
-        <div className="prose prose-invert prose-fuchsia max-w-none mb-16">
+        <div className="mb-16">
           <div 
-            className="text-gray-400 leading-relaxed font-light text-lg md:text-xl"
-            dangerouslySetInnerHTML={{ __html: product.description }} 
-          />
-        </div>
+      className="prose prose-invert prose-fuchsia max-w-none 
+                 prose-p:leading-relaxed prose-p:text-gray-400 
+                 prose-headings:text-white prose-strong:text-white 
+                 prose-strong:font-bold prose-img:rounded-3xl"
+      dangerouslySetInnerHTML={{ __html: product.description }} 
+    />
+  </div>
         )}
 
           {/* Capabilities vs Limitations Grid */}
