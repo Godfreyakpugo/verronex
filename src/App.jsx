@@ -10,6 +10,7 @@ import Deals from "./pages/Deals";
 import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/Dashboard";
 import Category from "./pages/Category"; 
+import WhatsAppButton from "./components/ui/WhatsAppButton";
 
 function App() {
 
@@ -54,6 +55,7 @@ function App() {
         </Routes>
 
         <Footer />
+        <WhatsAppButton />
       </div> 
   );
 }

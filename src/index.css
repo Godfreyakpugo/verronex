@@ -93,3 +93,14 @@ body {
   overflow-wrap: break-word;
   word-wrap: break-word;
 }
+
+@keyframes ping-slow {
+  75%, 100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.animate-ping-slow {
+  animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
