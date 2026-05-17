@@ -11,6 +11,7 @@ import AdminLogin from "./pages/AdminLogin";
 import Dashboard from "./pages/Dashboard";
 import Category from "./pages/Category"; 
 import WhatsAppButton from "./components/ui/WhatsAppButton";
+import Checkout from "./pages/Checkout";
 
 function App() {
 
@@ -52,6 +53,7 @@ function App() {
           <Route path="/deals" element={<Deals />} /> 
           <Route path="/verronex-admin-secret" element={<AdminLogin />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/checkout" element={<Checkout />} />
         </Routes>
 
         <Footer />

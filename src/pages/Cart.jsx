@@ -2,15 +2,19 @@
 import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import GlassCard from "../components/ui/GlassCard";
+import { useNavigate } from "react-router-dom";
 
 export default function Cart() {
   // ✅ All hook data must be retrieved INSIDE the function
   const { cart, removeFromCart, cartTotal, updateQuantity } = useCart();
-
+  const navigate = useNavigate();
+  
   const handleCheckout = () => {
     const orderDetails = cart.map(item => 
       `• ${item.quantity}x ${item.name} - ₦${(item.price * item.quantity).toLocaleString()}`
     ).join("%0A"); 
+
+    
 
     const totalString = `%0A*Total: ₦${cartTotal.toLocaleString()}*`;
     const message = `Hello Verronex! I would like to place an order:%0A%0A${orderDetails}%0A${totalString}%0A%0AIs this available?`;
@@ -101,12 +105,24 @@ export default function Cart() {
               <span className="text-fuchsia-400">₦{cartTotal.toLocaleString()}</span>
             </div>
 
+            <div className="space-y-4">
+              
+
+            <button
+              onClick={() => navigate("/checkout")}
+              className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-fuchsia-500/20 active:scale-95"
+            >
+              Proceed to Checkout
+            </button>
+
             <button 
               onClick={handleCheckout}
               className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-fuchsia-500/20 active:scale-95"
             >
               Checkout via WhatsApp
             </button>
+            </div>
+            
           </GlassCard>
         </div>
 
