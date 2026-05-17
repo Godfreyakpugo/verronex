@@ -179,12 +179,16 @@ const handleAddToCart = () => {
             {product.description && (
         <div className="mb-16">
           <div 
-      className="prose prose-invert prose-fuchsia max-w-none 
-                 prose-p:leading-relaxed prose-p:text-gray-400 
-                 prose-headings:text-white prose-strong:text-white 
-                 prose-strong:font-bold prose-img:rounded-3xl"
-      dangerouslySetInnerHTML={{ __html: product.description }} 
-    />
+  className="prose prose-invert prose-fuchsia max-w-none w-full
+             prose-p:leading-relaxed prose-p:text-gray-400 
+             prose-headings:text-white prose-strong:text-white 
+             prose-strong:font-bold prose-img:rounded-3xl"
+ dangerouslySetInnerHTML={{ 
+  __html: product.description
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\u00A0/g, ' ') 
+}}
+/>
   </div>
         )}
 
@@ -210,11 +214,11 @@ const handleAddToCart = () => {
             )}
 
             {/* What It Cannot Do */}
-            {product.limitations && product.limitations.length > 0 && (
+            {/* {product.limitations && product.limitations.length > 0 && (
               <GlassCard className="p-8 border-red-500/20 bg-red-500/5">
                 <h3 className="text-xl font-bold text-red-400 mb-6 flex items-center gap-3">
                   <span className="bg-red-500/20 p-2 rounded-lg">⚠️</span> 
-                  Hardware Limits
+                  Product Limitations
                 </h3>
                 <ul className="space-y-4">
                   {product.limitations.map((item, index) => (
@@ -225,7 +229,7 @@ const handleAddToCart = () => {
                   ))}
                 </ul>
               </GlassCard>
-            )}
+            )} */}
 
           </div>
         </div>

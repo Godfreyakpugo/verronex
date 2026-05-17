@@ -10,10 +10,11 @@ export default function Category({
 }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [sortBy, setSortBy] = useState("newest");
   const [isOpen, setIsOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
+  const PRODUCTS_PER_PAGE = 8;
   const dropdownRef = useRef(null);
 
   // FETCH PRODUCTS
@@ -91,6 +92,21 @@ export default function Category({
         return list.sort((a, b) => b.id - a.id);
     }
   }, [products, sortBy]);
+
+  const totalPages = Math.ceil(
+  sortedProducts.length / PRODUCTS_PER_PAGE
+);
+
+const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
+
+const paginatedProducts = sortedProducts.slice(
+  startIndex,
+  startIndex + PRODUCTS_PER_PAGE
+);
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [sortBy, categoryName]);
 
   const currentLabel =
     sortOptions.find((opt) => opt.id === sortBy)?.label;
@@ -178,7 +194,7 @@ export default function Category({
         </div>
       ) : sortedProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {sortedProducts.map((product) => (
+          {paginatedProducts.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
@@ -192,6 +208,54 @@ export default function Category({
           </p>
         </div>
       )}
+
+      {/* PAGINATION */}
+{totalPages > 1 && (
+  <div className="flex justify-center items-center gap-2 mt-16 flex-wrap">
+    
+    {/* PREV */}
+    <button
+      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+      disabled={currentPage === 1}
+      className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white disabled:opacity-30 hover:bg-white/10 transition"
+    >
+      Prev
+    </button>
+
+    {/* PAGE NUMBERS */}
+    {[...Array(totalPages)].map((_, index) => {
+      const page = index + 1;
+
+      return (
+        <button
+          key={page}
+          onClick={() => setCurrentPage(page)}
+          className={`w-11 h-11 rounded-xl text-sm font-bold transition
+            ${
+              currentPage === page
+                ? "bg-fuchsia-600 text-white shadow-lg"
+                : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10"
+            }`}
+        >
+          {page}
+        </button>
+      );
+    })}
+
+    {/* NEXT */}
+    <button
+      onClick={() =>
+        setCurrentPage(prev =>
+          Math.min(prev + 1, totalPages)
+        )
+      }
+      disabled={currentPage === totalPages}
+      className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white disabled:opacity-30 hover:bg-white/10 transition"
+    >
+      Next
+    </button>
+  </div>
+)}
     </div>
   );
 }

@@ -1,106 +1,135 @@
+
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* index.css */
+/* =========================
+GLOBAL STYLES
+========================= */
+
 body {
-  background: radial-gradient(circle at top, #1a001f, #000000);
-  font-family: 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased; /* This makes the font look "thinner" and sharper on Mac/iPhone */
-  -moz-osx-font-smoothing: grayscale;
-  color: white;
+background: radial-gradient(circle at top, #1a001f, #000000);
+font-family: 'Inter', sans-serif;
+-webkit-font-smoothing: antialiased;
+-moz-osx-font-smoothing: grayscale;
+color: white;
+overflow-x: hidden;
 }
 
-/* floating glow effect */
+/* =========================
+FLOATING GLOW EFFECT
+========================= */
 
 .glow {
-  position: absolute;
-  width: 500px;
-  height: 500px;
-  background: #d946ef;
-  filter: blur(200px);
-  opacity: 0.25;
+position: absolute;
+width: 500px;
+height: 500px;
+background: #d946ef;
+filter: blur(200px);
+opacity: 0.25;
 }
 
-/* Quill editor dark mode fix */
+/* =========================
+REACT QUILL DARK MODE
+========================= */
 
+/* Toolbar */
 .ql-toolbar.ql-snow {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  border-bottom: none !important;
-  color: white;
+background: rgba(255,255,255,0.05);
+border: 1px solid rgba(255,255,255,0.1) !important;
+border-bottom: none !important;
+color: white;
 }
 
+/* Editor Container */
 .ql-container.ql-snow {
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  background: rgba(0,0,0,0.2);
-  color: white;
+border: 1px solid rgba(255,255,255,0.1) !important;
+background: rgba(0,0,0,0.2);
+color: white;
 }
 
+/* Editor Content */
 .ql-editor {
-  color: white;
-  min-height: 200px;
+color: white;
+min-height: 200px;
 }
 
+/* Placeholder */
 .ql-editor.ql-blank::before {
-  color: rgba(255,255,255,0.4) !important;
-  font-style: italic;
+color: rgba(255,255,255,0.4) !important;
+font-style: italic;
 }
 
-/* Toolbar icons */
+/* Toolbar Icons */
 .ql-snow .ql-stroke {
-  stroke: white !important;
+stroke: white !important;
 }
 
 .ql-snow .ql-fill {
-  fill: white !important;
+fill: white !important;
 }
 
+/* Dropdown Labels */
 .ql-snow .ql-picker {
-  color: white !important;
+color: white !important;
 }
 
-/* Fix for Quill content wrapping */
-.prose, .ql-editor {
-  white-space: pre-wrap !important;
-  word-wrap: break-word !important;
-  overflow-wrap: break-word !important;
+/* Dropdown Menu */
+.ql-snow .ql-picker-options {
+background: #111 !important;
+border: 1px solid rgba(255,255,255,0.1) !important;
+border-radius: 10px !important;
 }
 
-/* Ensure bold text is actually bold within rich text */
-.prose strong {
-  font-weight: 700 !important;
-  color: inherit;
+/* Dropdown Items */
+.ql-snow .ql-picker-item {
+color: white !important;
 }
 
-/* Fix for extra line gaps (Quill uses empty paragraphs for spacing) */
-.prose p {
-  min-height: 1em;
+/* Hovered Dropdown Items */
+.ql-snow .ql-picker-item:hover {
+background: rgba(255,255,255,0.05) !important;
+color: #f193ff !important;
 }
 
-/* Fix for list formatting if you use bullets/numbers */
-.prose ul {
-  list-style-type: disc !important;
-  padding-left: 1.5em !important;
-}
-.prose ol {
-  list-style-type: decimal !important;
-  padding-left: 1.5em !important;
+/* Active Dropdown Item */
+.ql-snow .ql-picker-item.ql-selected {
+color: #d946ef !important;
 }
 
-/* Fix for the horizontal scrolling issue we discussed earlier */
+/* Dropdown Label Hover */
+.ql-snow .ql-picker-label:hover {
+color: #f1a1ff !important;
+}
+
+/* =========================
+TEXT WRAPPING FIX
+========================= */
+
 .prose {
-  overflow-wrap: break-word;
-  word-wrap: break-word;
+  max-width: 100%;
+  width: 100%;
 }
+
+.prose p, .prose li {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+
+/* =========================
+CUSTOM ANIMATIONS
+========================= */
 
 @keyframes ping-slow {
-  75%, 100% {
-    transform: scale(1.4);
-    opacity: 0;
-  }
+75%, 100% {
+transform: scale(1.4);
+opacity: 0;
+}
 }
 
 .animate-ping-slow {
-  animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
 }

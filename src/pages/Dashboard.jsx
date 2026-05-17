@@ -334,10 +334,10 @@ const addField = (type) => {
     </button>
   </div>
 
-  <div className="bg-white/5 rounded-xl overflow-hidden border border-white/10 min-h-[200px]">
+  <div className="bg-white/5 rounded-xl overflow-auto border border-white/10 min-h-[200px]">
     {showPreview ? (
       /* PREVIEW MODE */
-      <div className="p-4 prose prose-invert prose-fuchsia max-w-none">
+     <div className="p-4 prose prose-invert prose-fuchsia max-w-none min-w-0 w-full">
         {description ? (
           <div dangerouslySetInnerHTML={{ __html: description }} />
         ) : (
