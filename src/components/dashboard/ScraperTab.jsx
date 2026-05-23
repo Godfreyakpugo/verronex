@@ -1,8 +1,9 @@
 // src/components/dashboard/ScraperTab.jsx
 // UPDATED: Spec auto-detection from product title + Shopify options
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import GlassCard from "../ui/GlassCard";
+import Toast from "../ui/Toast";
 
 const COLLECTIONS = [
   {
@@ -149,7 +150,32 @@ export default function ScraperTab() {
   const [specValue, setSpecValue] = useState("");
   const [newImageFiles, setNewImageFiles] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [savedIds, setSavedIds] = useState(new Set());
+  const [savedIds, setSavedIds] = useState(new Set()); // imported this session
+  const [inventoryIds, setInventoryIds] = useState(new Set()); // already in DB
+
+  const [toast, setToast] = useState({
+    show: false,
+    message: "",
+    type: "success",
+  });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+  };
+
+  // On mount: fetch all shopinverse_id values already saved in Supabase
+  useEffect(() => {
+    const loadInventoryIds = async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("shopinverse_id")
+        .not("shopinverse_id", "is", null);
+      if (data) {
+        setInventoryIds(new Set(data.map((p) => p.shopinverse_id)));
+      }
+    };
+    loadInventoryIds();
+  }, []);
 
   // ── FETCH FROM SHOPINVERSE ──────────────────────────────────
 
@@ -222,7 +248,7 @@ export default function ScraperTab() {
 
   const saveImport = async () => {
     if (!importName || !importPrice)
-      return alert("Name and price are required.");
+      return showToast("Name and price are required.", "error");
     setSaving(true);
 
     // Upload any new image files the user added
@@ -244,7 +270,7 @@ export default function ScraperTab() {
         uploadedUrls = await Promise.all(uploads);
       } catch (err) {
         setSaving(false);
-        return alert("Image upload error: " + err.message);
+        return showToast("Image upload error: " + err.message, "error");
       }
     }
 
@@ -264,17 +290,20 @@ export default function ScraperTab() {
         discount: 0,
         featured: false,
         images: finalImages,
+        shopinverse_id: importing.id,
+        shopinverse_handle: importing.handle,
       },
     ]);
 
     setSaving(false);
 
     if (error) {
-      alert("Error saving product: " + error.message);
+      showToast("Error saving product: " + error.message, "error");
     } else {
       setSavedIds((prev) => new Set([...prev, importing.id]));
+      setInventoryIds((prev) => new Set([...prev, importing.id]));
       closeImport();
-      alert(`"${importName}" imported successfully!`);
+      showToast(`"${importName}" imported to Verronex`, "success");
     }
   };
 
@@ -334,6 +363,12 @@ export default function ScraperTab() {
               : null;
             const image = product.images?.[0]?.src;
             const alreadySaved = savedIds.has(product.id);
+            const inInventory = inventoryIds.has(product.id);
+            const buttonState = alreadySaved
+              ? "just_saved"
+              : inInventory
+                ? "in_inventory"
+                : "available";
 
             return (
               <GlassCard key={product.id} className="p-4 flex flex-col gap-3">
@@ -376,15 +411,33 @@ export default function ScraperTab() {
 
                 {/* Import Button */}
                 <button
-                  onClick={() => openImport(product)}
-                  disabled={alreadySaved}
+                  onClick={() => {
+                    if (buttonState === "in_inventory") {
+                      if (
+                        window.confirm(
+                          "This product is already in your inventory. Import a duplicate anyway?",
+                        )
+                      ) {
+                        openImport(product);
+                      }
+                    } else if (buttonState === "available") {
+                      openImport(product);
+                    }
+                  }}
+                  disabled={buttonState === "just_saved"}
                   className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
-                    alreadySaved
+                    buttonState === "just_saved"
                       ? "bg-green-500/20 text-green-400 border border-green-500/20 cursor-default"
-                      : "bg-fuchsia-600 hover:bg-fuchsia-500 text-white active:scale-95"
+                      : buttonState === "in_inventory"
+                        ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/20 hover:bg-yellow-500/30"
+                        : "bg-fuchsia-600 hover:bg-fuchsia-500 text-white active:scale-95"
                   }`}
                 >
-                  {alreadySaved ? "✓ Imported" : "Import Product"}
+                  {buttonState === "just_saved"
+                    ? "✓ Imported"
+                    : buttonState === "in_inventory"
+                      ? "⚠ Already in Inventory"
+                      : "Import Product"}
                 </button>
               </GlassCard>
             );
@@ -607,6 +660,12 @@ export default function ScraperTab() {
           </div>
         </div>
       )}
+      <Toast
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, show: false })}
+      />
     </div>
   );
 }
