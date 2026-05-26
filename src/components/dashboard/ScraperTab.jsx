@@ -6,27 +6,32 @@ import GlassCard from "../ui/GlassCard";
 import Toast from "../ui/Toast";
 
 const COLLECTIONS = [
-  {
-    label: "Best Selling",
-    url: "https://shopinverse.com/collections/best-selling/products.json?limit=24",
-  },
-  {
-    label: "Laptops",
-    url: "https://shopinverse.com/collections/laptops/products.json?limit=24",
-  },
-  {
-    label: "Phones",
-    url: "https://shopinverse.com/collections/phones-tablets-1/products.json?limit=24",
-  },
-  {
-    label: "Accessories",
-    url: "https://shopinverse.com/collections/accessories/products.json?limit=24",
-  },
-  {
-    label: "Smart Gadgets",
-    url: "https://shopinverse.com/collections/smart-gadgets/products.json?limit=24",
-  },
+  { label: "Best Selling", handle: "best-selling" },
+  { label: "Laptops", handle: "laptops" },
+  { label: "Phones", handle: "phones-tablets-1" },
+  { label: "Accessories", handle: "accessories" },
+  { label: "Smart Gadgets", handle: "smart-gadgets" },
 ];
+
+// Fetches ALL pages from a Shopify collection (max 250 per page)
+const fetchAllProducts = async (collectionHandle) => {
+  let allProducts = [];
+  let page = 1;
+  const limit = 250;
+
+  while (true) {
+    const url = `https://shopinverse.com/collections/${collectionHandle}/products.json?limit=${limit}&page=${page}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const batch = data.products || [];
+    allProducts = [...allProducts, ...batch];
+    if (batch.length < limit) break;
+    page++;
+  }
+
+  return allProducts;
+};
 
 const CATEGORY_MAP = {
   Laptops: "Laptops",
@@ -152,16 +157,15 @@ export default function ScraperTab() {
   const [saving, setSaving] = useState(false);
   const [savedIds, setSavedIds] = useState(new Set()); // imported this session
   const [inventoryIds, setInventoryIds] = useState(new Set()); // already in DB
-
   const [toast, setToast] = useState({
     show: false,
     message: "",
     type: "success",
   });
+  const [confirmProduct, setConfirmProduct] = useState(null); // replaces window.confirm
 
-  const showToast = (message, type = "success") => {
+  const showToast = (message, type = "success") =>
     setToast({ show: true, message, type });
-  };
 
   // On mount: fetch all shopinverse_id values already saved in Supabase
   useEffect(() => {
@@ -185,14 +189,12 @@ export default function ScraperTab() {
     setScraped([]);
 
     try {
-      const res = await fetch(collection.url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setScraped(data.products || []);
+      const products = await fetchAllProducts(collection.handle);
+      setScraped(products);
     } catch (err) {
       setFetchError(
-        "Could not fetch products. This is usually a CORS issue in development. " +
-          "It will work fine after deployment. Error: " +
+        "Could not fetch products. This is usually a CORS issue in development — " +
+          "it will work fine after deployment. Error: " +
           err.message,
       );
     }
@@ -247,11 +249,12 @@ export default function ScraperTab() {
   // ── SAVE TO SUPABASE ────────────────────────────────────────
 
   const saveImport = async () => {
-    if (!importName || !importPrice)
-      return showToast("Name and price are required.", "error");
+    if (!importName || !importPrice) {
+      showToast("Name and price are required.", "error");
+      return;
+    }
     setSaving(true);
 
-    // Upload any new image files the user added
     let uploadedUrls = [];
     if (newImageFiles.length > 0) {
       try {
@@ -270,7 +273,8 @@ export default function ScraperTab() {
         uploadedUrls = await Promise.all(uploads);
       } catch (err) {
         setSaving(false);
-        return showToast("Image upload error: " + err.message, "error");
+        showToast("Image upload error: " + err.message, "error");
+        return;
       }
     }
 
@@ -298,12 +302,12 @@ export default function ScraperTab() {
     setSaving(false);
 
     if (error) {
-      showToast("Error saving product: " + error.message, "error");
+      showToast("Error saving: " + error.message, "error");
     } else {
       setSavedIds((prev) => new Set([...prev, importing.id]));
       setInventoryIds((prev) => new Set([...prev, importing.id]));
       closeImport();
-      showToast(`"${importName}" imported to Verronex`, "success");
+      showToast(`"${importName}" imported to Verronex!`);
     }
   };
 
@@ -413,13 +417,7 @@ export default function ScraperTab() {
                 <button
                   onClick={() => {
                     if (buttonState === "in_inventory") {
-                      if (
-                        window.confirm(
-                          "This product is already in your inventory. Import a duplicate anyway?",
-                        )
-                      ) {
-                        openImport(product);
-                      }
+                      setConfirmProduct(product);
                     } else if (buttonState === "available") {
                       openImport(product);
                     }
@@ -660,6 +658,52 @@ export default function ScraperTab() {
           </div>
         </div>
       )}
+
+      {/* ── DUPLICATE CONFIRM MODAL ── */}
+      {confirmProduct && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setConfirmProduct(null)}
+        >
+          <div
+            className="bg-[#0d0010] border border-yellow-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <h3 className="text-white font-bold">Already in Inventory</h3>
+                <p className="text-white/50 text-sm mt-1">
+                  <span className="text-yellow-300 font-semibold">
+                    {confirmProduct.title}
+                  </span>{" "}
+                  is already in your Verronex inventory. Import a duplicate
+                  anyway?
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2 border-t border-white/10">
+              <button
+                onClick={() => setConfirmProduct(null)}
+                className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  openImport(confirmProduct);
+                  setConfirmProduct(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/20 font-bold text-sm transition"
+              >
+                Import Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TOAST ── */}
       <Toast
         show={toast.show}
         message={toast.message}
