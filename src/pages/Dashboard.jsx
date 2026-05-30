@@ -47,10 +47,16 @@ export default function Dashboard() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState(null);
 
+  // --- PENDING APPROVAL STATE ---
+  const [pendingProducts, setPendingProducts] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [approvingId, setApprovingId] = useState(null);
+
   useEffect(() => {
     checkUser();
     fetchProducts();
     fetchOrders();
+    fetchPending();
   }, []);
 
   const checkUser = async () => {
@@ -74,6 +80,57 @@ export default function Dashboard() {
 
     if (!error) setOrders(data);
     setOrdersLoading(false);
+  };
+
+  // ─── PENDING APPROVALS ──────────────────────────────────────
+
+  const fetchPending = async () => {
+    setPendingLoading(true);
+    const { data } = await supabase
+      .from("products")
+      .select("*")
+      .eq("hidden", true)
+      .order("id", { ascending: false });
+    setPendingProducts(data || []);
+    setPendingLoading(false);
+  };
+
+  const approveProduct = async (id) => {
+    setApprovingId(id);
+    const { error } = await supabase
+      .from("products")
+      .update({ hidden: false })
+      .eq("id", id);
+    if (!error) setPendingProducts((prev) => prev.filter((p) => p.id !== id));
+    setApprovingId(null);
+  };
+
+  const approveAll = async () => {
+    if (
+      !window.confirm(
+        `Approve all ${pendingProducts.length} pending products? They will go live immediately.`,
+      )
+    )
+      return;
+    const ids = pendingProducts.map((p) => p.id);
+    const { error } = await supabase
+      .from("products")
+      .update({ hidden: false })
+      .in("id", ids);
+    if (!error) {
+      setPendingProducts([]);
+      fetchProducts();
+    }
+  };
+
+  const rejectProduct = async (id, imageUrls) => {
+    if (!window.confirm("Delete this product permanently?")) return;
+    if (imageUrls?.length > 0) {
+      const files = imageUrls.map((u) => u.split("/").pop());
+      await supabase.storage.from("products").remove(files);
+    }
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (!error) setPendingProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -304,6 +361,20 @@ export default function Dashboard() {
               )}
             </button>
             <button
+              onClick={() => {
+                setActiveTab("pending");
+                fetchPending();
+              }}
+              className={`px-5 py-2 rounded-xl font-bold text-sm transition-all relative ${activeTab === "pending" ? "bg-fuchsia-600 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
+            >
+              ⏳ Pending
+              {pendingProducts.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-fuchsia-500 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                  {pendingProducts.length}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab("scraper")}
               className={`px-5 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === "scraper" ? "bg-fuchsia-600 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}
             >
@@ -443,15 +514,29 @@ export default function Dashboard() {
               </div>
 
               {/* LIMITATIONS */}
-              {/* <div className="space-y-4 pt-4">
-                <label className="text-xs font-bold text-red-500 uppercase tracking-widest">Limitations</label>
+              <div className="space-y-4 pt-4">
+                <label className="text-xs font-bold text-red-500 uppercase tracking-widest">
+                  Limitations
+                </label>
                 {limitations.map((lim, index) => (
-                  <input key={index} value={lim} onChange={(e) => handleArrayChange(index, e.target.value, 'lim')}
+                  <input
+                    key={index}
+                    value={lim}
+                    onChange={(e) =>
+                      handleArrayChange(index, e.target.value, "lim")
+                    }
                     className="w-full bg-white/5 border border-white/10 p-3 rounded-xl text-white outline-none focus:border-red-500 transition"
-                    placeholder="e.g. No SD Card Slot" />
+                    placeholder="e.g. No SD Card Slot"
+                  />
                 ))}
-                <button type="button" onClick={() => addField('lim')} className="text-xs text-red-400 hover:text-red-300 font-bold">+ Add Limitation</button>
-              </div> */}
+                <button
+                  type="button"
+                  onClick={() => addField("lim")}
+                  className="text-xs text-red-400 hover:text-red-300 font-bold"
+                >
+                  + Add Limitation
+                </button>
+              </div>
 
               {/* SPEC BUILDER */}
               <div className="space-y-3 p-4 bg-black/20 rounded-xl border border-white/5">
@@ -923,7 +1008,126 @@ export default function Dashboard() {
           )}
         </div>
       )}
+      {/* ── SCRAPER TAB ── */}
       {activeTab === "scraper" && <ScraperTab />}
+
+      {/* ── PENDING APPROVAL TAB ── */}
+      {activeTab === "pending" && (
+        <div className="mt-10">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold">Pending Approval</h2>
+              <p className="text-white/40 text-sm mt-1">
+                Products auto-imported by sync — review before they go live.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={fetchPending}
+                className="text-xs text-fuchsia-400 hover:text-fuchsia-300 font-bold border border-fuchsia-500/20 px-3 py-2 rounded-lg transition"
+              >
+                ↺ Refresh
+              </button>
+              {pendingProducts.length > 0 && (
+                <button
+                  onClick={approveAll}
+                  className="text-xs bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold px-4 py-2 rounded-lg transition"
+                >
+                  ✓ Approve All ({pendingProducts.length})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {pendingLoading ? (
+            <p className="text-white/40 text-center py-20 animate-pulse">
+              Loading pending products...
+            </p>
+          ) : pendingProducts.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-4xl mb-4">✓</p>
+              <p className="text-white/40">No pending products. All clear.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {pendingProducts.map((product) => (
+                <GlassCard
+                  key={product.id}
+                  className="p-4 flex flex-col gap-3 border-fuchsia-500/10"
+                >
+                  {/* Image */}
+                  <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white/5">
+                    {product.images?.[0] ? (
+                      <img
+                        src={product.images[0]}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white/20 text-xs">
+                        No Image
+                      </div>
+                    )}
+                    <span className="absolute top-2 left-2 text-[10px] bg-fuchsia-500/80 text-white px-2 py-0.5 rounded-md font-bold uppercase tracking-wider">
+                      Pending
+                    </span>
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-white text-sm leading-snug line-clamp-2">
+                      {product.name}
+                    </p>
+                    <p className="text-white/40 text-xs mt-0.5">
+                      {product.category}
+                    </p>
+                    <p className="text-fuchsia-400 font-bold mt-1">
+                      ₦{product.price?.toLocaleString()}
+                    </p>
+                    {product.specs && Object.keys(product.specs).length > 0 && (
+                      <p className="text-emerald-400/60 text-xs mt-1">
+                        ✓ {Object.keys(product.specs).length} specs
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-3 border-t border-white/10">
+                    <button
+                      onClick={() => rejectProduct(product.id, product.images)}
+                      className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 transition-all"
+                      title="Delete"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => approveProduct(product.id)}
+                      disabled={approvingId === product.id}
+                      className="flex-1 py-2 rounded-lg bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-50 text-white font-bold text-sm transition-all"
+                    >
+                      {approvingId === product.id
+                        ? "Approving..."
+                        : "✓ Approve"}
+                    </button>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

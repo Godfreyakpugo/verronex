@@ -1,5 +1,4 @@
 // src/components/dashboard/ScraperTab.jsx
-// UPDATED: Spec auto-detection from product title + Shopify options
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import GlassCard from "../ui/GlassCard";
@@ -13,12 +12,10 @@ const COLLECTIONS = [
   { label: "Smart Gadgets", handle: "smart-gadgets" },
 ];
 
-// Fetches ALL pages from a Shopify collection (max 250 per page)
 const fetchAllProducts = async (collectionHandle) => {
   let allProducts = [];
   let page = 1;
   const limit = 250;
-
   while (true) {
     const url = `https://shopinverse.com/collections/${collectionHandle}/products.json?limit=${limit}&page=${page}`;
     const res = await fetch(url);
@@ -29,7 +26,6 @@ const fetchAllProducts = async (collectionHandle) => {
     if (batch.length < limit) break;
     page++;
   }
-
   return allProducts;
 };
 
@@ -38,14 +34,54 @@ const CATEGORY_MAP = {
   Phones: "Phones",
   Accessories: "Accessories",
   "Smart Gadgets": "Accessories",
-  "Best Selling": "Laptops",
+  "Best Selling": "Accessories", // fallback only, detectCategory runs first
 };
 
-// ── SPEC PARSER ──────────────────────────────────────────────
+// Detects product category from product_type and tags before falling back to collection
+const detectCategory = (product, collectionLabel) => {
+  try {
+    const type = (product.product_type || "").toLowerCase();
+    // Handle both string and array — Shopify API can return either
+    const tagsRaw = Array.isArray(product.tags)
+      ? product.tags.join(" ")
+      : product.tags || "";
+    const raw = (type + " " + tagsRaw).toLowerCase();
+
+    // Accessories FIRST — catches "Laptop Bag", "SSD", "Phone Case" before device checks
+    if (
+      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|keyboard|mouse|mousepad|stand|hub|adapter|screen protector|power bank|powerbank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash drive|pendrive|usb|hdmi|vga|stylus|tripod|gimbal|ring light|ssd|hdd|hard drive|solid state|nvme|sata|m2|storage|memory card|sd card/.test(
+        raw,
+      )
+    ) {
+      return "Accessories";
+    }
+
+    // Phones
+    if (
+      /smartphone|iphone|android|mobile phone/.test(type) ||
+      /smartphone|iphone|android/.test(raw)
+    ) {
+      return "Phones";
+    }
+
+    // Laptops
+    if (/laptop|notebook|macbook|chromebook|ultrabook|netbook/.test(type)) {
+      return "Laptops";
+    }
+
+    // Broader tag fallback
+    if (/\bphone\b|\bsmartphone\b/.test(raw)) return "Phones";
+    if (/\blaptop\b|\bnotebook\b/.test(raw)) return "Laptops";
+
+    return CATEGORY_MAP[collectionLabel] || "Accessories";
+  } catch (e) {
+    return CATEGORY_MAP[collectionLabel] || "Accessories";
+  }
+};
+
 const parseSpecs = (product) => {
   const specs = {};
 
-  // Strategy 1: Shopify options array (most reliable)
   if (product.options?.length) {
     product.options.forEach((opt, idx) => {
       if (opt.name === "Title") return;
@@ -54,7 +90,6 @@ const parseSpecs = (product) => {
     });
   }
 
-  // Strategy 2: Parse title split by " - "
   if (product.title) {
     const parts = product.title
       .split(" - ")
@@ -135,15 +170,12 @@ const parseSpecs = (product) => {
   return specs;
 };
 
-// ─────────────────────────────────────────────────────────────
-
 export default function ScraperTab() {
   const [activeCollection, setActiveCollection] = useState(COLLECTIONS[0]);
   const [scraped, setScraped] = useState([]);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState("");
 
-  // Import modal state
   const [importing, setImporting] = useState(null);
   const [importName, setImportName] = useState("");
   const [importPrice, setImportPrice] = useState("");
@@ -155,39 +187,35 @@ export default function ScraperTab() {
   const [specValue, setSpecValue] = useState("");
   const [newImageFiles, setNewImageFiles] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [savedIds, setSavedIds] = useState(new Set()); // imported this session
-  const [inventoryIds, setInventoryIds] = useState(new Set()); // already in DB
+  const [savedIds, setSavedIds] = useState(new Set());
+  const [inventoryIds, setInventoryIds] = useState(new Set());
+  const [bulkImporting, setBulkImporting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+  const [confirmProduct, setConfirmProduct] = useState(null);
   const [toast, setToast] = useState({
     show: false,
     message: "",
     type: "success",
   });
-  const [confirmProduct, setConfirmProduct] = useState(null); // replaces window.confirm
 
   const showToast = (message, type = "success") =>
     setToast({ show: true, message, type });
 
-  // On mount: fetch all shopinverse_id values already saved in Supabase
   useEffect(() => {
     const loadInventoryIds = async () => {
       const { data } = await supabase
         .from("products")
         .select("shopinverse_id")
         .not("shopinverse_id", "is", null);
-      if (data) {
-        setInventoryIds(new Set(data.map((p) => p.shopinverse_id)));
-      }
+      if (data) setInventoryIds(new Set(data.map((p) => p.shopinverse_id)));
     };
     loadInventoryIds();
   }, []);
-
-  // ── FETCH FROM SHOPINVERSE ──────────────────────────────────
 
   const fetchProducts = async (collection) => {
     setFetchLoading(true);
     setFetchError("");
     setScraped([]);
-
     try {
       const products = await fetchAllProducts(collection.handle);
       setScraped(products);
@@ -198,7 +226,6 @@ export default function ScraperTab() {
           err.message,
       );
     }
-
     setFetchLoading(false);
   };
 
@@ -207,19 +234,16 @@ export default function ScraperTab() {
     fetchProducts(col);
   };
 
-  // ── OPEN IMPORT MODAL ───────────────────────────────────────
-
   const openImport = (product) => {
     const price = product.variants?.[0]?.price
       ? Math.round(parseFloat(product.variants[0].price))
       : "";
     const images = (product.images || []).map((img) => img.src);
     const specs = parseSpecs(product);
-
     setImporting(product);
     setImportName(product.title || "");
     setImportPrice(price);
-    setImportCategory(CATEGORY_MAP[activeCollection.label] || "Laptops");
+    setImportCategory(detectCategory(product, activeCollection.label));
     setImportImages(images);
     setImportStock(1);
     setImportSpecs(specs);
@@ -245,8 +269,6 @@ export default function ScraperTab() {
     delete s[key];
     setImportSpecs(s);
   };
-
-  // ── SAVE TO SUPABASE ────────────────────────────────────────
 
   const saveImport = async () => {
     if (!importName || !importPrice) {
@@ -311,7 +333,82 @@ export default function ScraperTab() {
     }
   };
 
-  // ── RENDER ──────────────────────────────────────────────────
+  // ── BULK IMPORT ALL ─────────────────────────────────────────
+  const importAll = async () => {
+    // Only import products not already in inventory
+    const toImport = scraped.filter(
+      (p) => !savedIds.has(p.id) && !inventoryIds.has(p.id),
+    );
+
+    if (toImport.length === 0) {
+      showToast("All products already in your inventory.", "info");
+      return;
+    }
+
+    setBulkImporting(true);
+    setBulkProgress({ done: 0, total: toImport.length });
+
+    let successCount = 0;
+    let failCount = 0;
+    const newIds = new Set();
+
+    for (const product of toImport) {
+      try {
+        const price = product.variants?.[0]?.price
+          ? Math.round(parseFloat(product.variants[0].price))
+          : 0;
+        const images = (product.images || []).map((img) => img.src);
+        const specs = parseSpecs(product);
+        const category = detectCategory(product, activeCollection.label);
+
+        const { error } = await supabase.from("products").insert([
+          {
+            name: product.title,
+            price: price,
+            stock: 1,
+            category: category,
+            description: product.body_html || "",
+            capabilities: [],
+            limitations: [],
+            specs: specs,
+            onSale: false,
+            discount: 0,
+            featured: false,
+            hidden: false,
+            images: images,
+            shopinverse_id: product.id,
+            shopinverse_handle: product.handle,
+          },
+        ]);
+
+        if (!error) {
+          successCount++;
+          newIds.add(product.id);
+        } else {
+          console.error("Insert error:", error.message);
+          failCount++;
+        }
+      } catch (err) {
+        console.error("Import error for product:", product.title, err);
+        failCount++;
+      }
+
+      setBulkProgress((prev) => ({ ...prev, done: prev.done + 1 }));
+      await new Promise((r) => setTimeout(r, 80));
+    }
+
+    // Update local state so buttons reflect imported status
+    setSavedIds((prev) => new Set([...prev, ...newIds]));
+    setInventoryIds((prev) => new Set([...prev, ...newIds]));
+    setBulkImporting(false);
+    setBulkProgress({ done: 0, total: 0 });
+
+    if (failCount === 0) {
+      showToast(`${successCount} products imported successfully!`);
+    } else {
+      showToast(`${successCount} imported, ${failCount} failed.`, "error");
+    }
+  };
 
   return (
     <div className="mt-10 space-y-6">
@@ -339,22 +436,73 @@ export default function ScraperTab() {
         ))}
       </div>
 
-      {/* STATES */}
       {fetchLoading && (
         <div className="text-center py-20 text-white/40 animate-pulse">
           Fetching from Shopinverse...
         </div>
       )}
-
       {fetchError && (
         <GlassCard className="p-6 border-red-500/20 bg-red-500/5">
           <p className="text-red-400 text-sm">{fetchError}</p>
         </GlassCard>
       )}
-
       {!fetchLoading && scraped.length === 0 && !fetchError && (
         <div className="text-center py-20 text-white/30">
           Select a collection above to load products.
+        </div>
+      )}
+
+      {/* IMPORT ALL BAR */}
+      {scraped.length > 0 && !fetchLoading && (
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white/5 rounded-2xl border border-white/10">
+          <div>
+            <p className="text-sm font-bold text-white">
+              {scraped.length} products loaded
+            </p>
+            <p className="text-xs text-white/40 mt-0.5">
+              {
+                scraped.filter(
+                  (p) => !savedIds.has(p.id) && !inventoryIds.has(p.id),
+                ).length
+              }{" "}
+              not yet in your inventory
+            </p>
+          </div>
+
+          {/* Progress bar shown during bulk import */}
+          {bulkImporting && (
+            <div className="flex-1 min-w-[160px]">
+              <div className="flex justify-between text-xs text-white/40 mb-1">
+                <span>Importing...</span>
+                <span>
+                  {bulkProgress.done}/{bulkProgress.total}
+                </span>
+              </div>
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-fuchsia-500 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${bulkProgress.total > 0 ? (bulkProgress.done / bulkProgress.total) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={importAll}
+            disabled={
+              bulkImporting ||
+              scraped.filter(
+                (p) => !savedIds.has(p.id) && !inventoryIds.has(p.id),
+              ).length === 0
+            }
+            className="px-5 py-2.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm transition-all active:scale-95 shrink-0"
+          >
+            {bulkImporting
+              ? `Importing ${bulkProgress.done}/${bulkProgress.total}...`
+              : `⬇ Import All (${scraped.filter((p) => !savedIds.has(p.id) && !inventoryIds.has(p.id)).length})`}
+          </button>
         </div>
       )}
 
@@ -373,10 +521,10 @@ export default function ScraperTab() {
               : inInventory
                 ? "in_inventory"
                 : "available";
+            const specCount = Object.keys(parseSpecs(product)).length;
 
             return (
               <GlassCard key={product.id} className="p-4 flex flex-col gap-3">
-                {/* Image */}
                 <div className="w-full aspect-square rounded-xl overflow-hidden bg-white/5">
                   {image ? (
                     <img
@@ -390,8 +538,6 @@ export default function ScraperTab() {
                     </div>
                   )}
                 </div>
-
-                {/* Info */}
                 <div className="flex-1">
                   <p className="font-semibold text-white text-sm leading-snug line-clamp-2">
                     {product.title}
@@ -405,22 +551,18 @@ export default function ScraperTab() {
                     <p className="text-white/30 text-xs">
                       {product.images?.length || 0} images
                     </p>
-                    {Object.keys(parseSpecs(product)).length > 0 && (
+                    {specCount > 0 && (
                       <p className="text-emerald-400/70 text-xs">
-                        ✓ {Object.keys(parseSpecs(product)).length} specs
+                        ✓ {specCount} specs
                       </p>
                     )}
                   </div>
                 </div>
-
-                {/* Import Button */}
                 <button
                   onClick={() => {
-                    if (buttonState === "in_inventory") {
+                    if (buttonState === "in_inventory")
                       setConfirmProduct(product);
-                    } else if (buttonState === "available") {
-                      openImport(product);
-                    }
+                    else if (buttonState === "available") openImport(product);
                   }}
                   disabled={buttonState === "just_saved"}
                   className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all ${
@@ -448,11 +590,8 @@ export default function ScraperTab() {
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#0d0010] border border-white/10 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6 space-y-5">
-              {/* Header */}
               <div className="flex items-start justify-between gap-4">
-                <h3 className="text-lg font-bold text-white leading-snug">
-                  Import Product
-                </h3>
+                <h3 className="text-lg font-bold text-white">Import Product</h3>
                 <button
                   onClick={closeImport}
                   className="text-white/40 hover:text-white text-xl shrink-0"
@@ -461,7 +600,6 @@ export default function ScraperTab() {
                 </button>
               </div>
 
-              {/* Name */}
               <div className="space-y-1">
                 <label className="text-[10px] text-white/40 uppercase font-bold">
                   Product Name
@@ -473,7 +611,6 @@ export default function ScraperTab() {
                 />
               </div>
 
-              {/* Price */}
               <div className="space-y-1">
                 <label className="text-[10px] text-white/40 uppercase font-bold">
                   Your Selling Price (₦)
@@ -492,7 +629,6 @@ export default function ScraperTab() {
                 </p>
               </div>
 
-              {/* Category */}
               <div className="space-y-1">
                 <label className="text-[10px] text-white/40 uppercase font-bold">
                   Category
@@ -508,7 +644,6 @@ export default function ScraperTab() {
                 </select>
               </div>
 
-              {/* Stock */}
               <div className="space-y-1">
                 <label className="text-[10px] text-white/40 uppercase font-bold">
                   Initial Stock
@@ -522,7 +657,7 @@ export default function ScraperTab() {
                 />
               </div>
 
-              {/* ── SPECS ── */}
+              {/* SPECS */}
               <div className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/10">
                 <div className="flex items-center justify-between">
                   <label className="text-[10px] text-fuchsia-400 uppercase font-bold tracking-widest">
@@ -534,7 +669,6 @@ export default function ScraperTab() {
                     </span>
                   )}
                 </div>
-
                 {Object.keys(importSpecs).length > 0 ? (
                   <div className="grid grid-cols-1 gap-1.5">
                     {Object.entries(importSpecs).map(([key, value]) => (
@@ -562,7 +696,6 @@ export default function ScraperTab() {
                     No specs detected. Add manually below.
                   </p>
                 )}
-
                 <div className="flex gap-2 pt-1">
                   <input
                     type="text"
@@ -588,7 +721,7 @@ export default function ScraperTab() {
                 </div>
               </div>
 
-              {/* Imported Images */}
+              {/* IMAGES */}
               <div className="space-y-2">
                 <label className="text-[10px] text-white/40 uppercase font-bold">
                   Images from Shopinverse ({importImages.length}) — click × to
@@ -619,7 +752,6 @@ export default function ScraperTab() {
                 </div>
               </div>
 
-              {/* Upload Extra Images */}
               <div className="space-y-1">
                 <label className="text-[10px] text-white/40 uppercase font-bold">
                   Add Your Own Images
@@ -638,7 +770,6 @@ export default function ScraperTab() {
                 )}
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 pt-2 border-t border-white/10">
                 <button
                   onClick={closeImport}
@@ -677,8 +808,7 @@ export default function ScraperTab() {
                   <span className="text-yellow-300 font-semibold">
                     {confirmProduct.title}
                   </span>{" "}
-                  is already in your Verronex inventory. Import a duplicate
-                  anyway?
+                  is already in your inventory. Import a duplicate anyway?
                 </p>
               </div>
             </div>

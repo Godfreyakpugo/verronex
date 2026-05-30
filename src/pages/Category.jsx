@@ -3,18 +3,14 @@ import { supabase } from "../lib/supabase";
 import ProductCard from "../components/ui/ProductCard";
 import { ChevronDown, ListFilter } from "lucide-react";
 
-export default function Category({
-  categoryName,
-  title,
-  description,
-}) {
+export default function Category({ categoryName, title, description }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("newest");
   const [isOpen, setIsOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const PRODUCTS_PER_PAGE = 8;
+  const PRODUCTS_PER_PAGE = 16;
   const dropdownRef = useRef(null);
 
   // FETCH PRODUCTS
@@ -43,10 +39,7 @@ export default function Category({
   // CLOSE DROPDOWN WHEN CLICKING OUTSIDE
   useEffect(() => {
     const handleClick = (e) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
       }
     };
@@ -79,57 +72,43 @@ export default function Category({
         return list.sort((a, b) => b.price - a.price);
 
       case "name-asc":
-        return list.sort((a, b) =>
-          a.name.localeCompare(b.name)
-        );
+        return list.sort((a, b) => a.name.localeCompare(b.name));
 
       case "name-desc":
-        return list.sort((a, b) =>
-          b.name.localeCompare(a.name)
-        );
+        return list.sort((a, b) => b.name.localeCompare(a.name));
 
       default:
         return list.sort((a, b) => b.id - a.id);
     }
   }, [products, sortBy]);
 
-  const totalPages = Math.ceil(
-  sortedProducts.length / PRODUCTS_PER_PAGE
-);
+  const totalPages = Math.ceil(sortedProducts.length / PRODUCTS_PER_PAGE);
 
-const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
+  const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
 
-const paginatedProducts = sortedProducts.slice(
-  startIndex,
-  startIndex + PRODUCTS_PER_PAGE
-);
+  const paginatedProducts = sortedProducts.slice(
+    startIndex,
+    startIndex + PRODUCTS_PER_PAGE,
+  );
 
-useEffect(() => {
-  setCurrentPage(1);
-}, [sortBy, categoryName]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortBy, categoryName]);
 
-  const currentLabel =
-    sortOptions.find((opt) => opt.id === sortBy)?.label;
+  const currentLabel = sortOptions.find((opt) => opt.id === sortBy)?.label;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12 lg:py-24">
-
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
-
         <div className="space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold text-white">
-            {title}
-          </h1>
+          <h1 className="text-4xl md:text-5xl font-bold text-white">{title}</h1>
 
-          <p className="text-gray-400 text-lg max-w-2xl">
-            {description}
-          </p>
+          <p className="text-gray-400 text-lg max-w-2xl">{description}</p>
         </div>
 
         {/* SORT DROPDOWN */}
         <div className="relative" ref={dropdownRef}>
-
           <p className="text-[10px] uppercase font-black tracking-[0.2em] text-fuchsia-500 mb-2 ml-1">
             Sort Collection
           </p>
@@ -139,14 +118,9 @@ useEffect(() => {
             className="flex items-center justify-between w-64 px-5 py-4 bg-white/5 border border-white/10 rounded-2xl text-white hover:bg-white/10 transition-all backdrop-blur-md"
           >
             <div className="flex items-center gap-3">
-              <ListFilter
-                size={18}
-                className="text-fuchsia-500"
-              />
+              <ListFilter size={18} className="text-fuchsia-500" />
 
-              <span className="text-sm font-medium">
-                {currentLabel}
-              </span>
+              <span className="text-sm font-medium">{currentLabel}</span>
             </div>
 
             <ChevronDown
@@ -160,7 +134,6 @@ useEffect(() => {
           {/* DROPDOWN MENU */}
           {isOpen && (
             <div className="absolute top-[110%] left-0 right-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-2xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-
               {sortOptions.map((option) => (
                 <button
                   key={option.id}
@@ -195,10 +168,7 @@ useEffect(() => {
       ) : sortedProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {paginatedProducts.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-            />
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       ) : (
@@ -210,52 +180,49 @@ useEffect(() => {
       )}
 
       {/* PAGINATION */}
-{totalPages > 1 && (
-  <div className="flex justify-center items-center gap-2 mt-16 flex-wrap">
-    
-    {/* PREV */}
-    <button
-      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-      disabled={currentPage === 1}
-      className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white disabled:opacity-30 hover:bg-white/10 transition"
-    >
-      Prev
-    </button>
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-16 flex-wrap">
+          {/* PREV */}
+          <button
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white disabled:opacity-30 hover:bg-white/10 transition"
+          >
+            Prev
+          </button>
 
-    {/* PAGE NUMBERS */}
-    {[...Array(totalPages)].map((_, index) => {
-      const page = index + 1;
+          {/* PAGE NUMBERS */}
+          {[...Array(totalPages)].map((_, index) => {
+            const page = index + 1;
 
-      return (
-        <button
-          key={page}
-          onClick={() => setCurrentPage(page)}
-          className={`w-11 h-11 rounded-xl text-sm font-bold transition
+            return (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-11 h-11 rounded-xl text-sm font-bold transition
             ${
               currentPage === page
                 ? "bg-fuchsia-600 text-white shadow-lg"
                 : "bg-white/5 border border-white/10 text-white/60 hover:bg-white/10"
             }`}
-        >
-          {page}
-        </button>
-      );
-    })}
+              >
+                {page}
+              </button>
+            );
+          })}
 
-    {/* NEXT */}
-    <button
-      onClick={() =>
-        setCurrentPage(prev =>
-          Math.min(prev + 1, totalPages)
-        )
-      }
-      disabled={currentPage === totalPages}
-      className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white disabled:opacity-30 hover:bg-white/10 transition"
-    >
-      Next
-    </button>
-  </div>
-)}
+          {/* NEXT */}
+          <button
+            onClick={() =>
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+            }
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white disabled:opacity-30 hover:bg-white/10 transition"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }
