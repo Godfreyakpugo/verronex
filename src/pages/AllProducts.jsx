@@ -19,6 +19,7 @@ export default function AllProducts() {
       const { data, error } = await supabase
         .from("products")
         .select("*")
+        .eq("hidden", false)
         .gt("stock", 0);
 
       if (!error) setProducts(data);
