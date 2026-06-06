@@ -95,6 +95,28 @@ function Categories() {
         </svg>
       ),
     },
+    {
+      title: "Components",
+      description:
+        "Standalone computer parts and PC components for building or upgrading your rig.",
+      path: "/components",
+      delayClass: "md:delay-450",
+      icon: (
+        <svg
+          className="w-6 h-6 text-fuchsia-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M5 11h14M5 15h14M7 7h10M7 19h10"
+          />
+        </svg>
+      ),
+    },
   ];
 
   return (

@@ -33,12 +33,56 @@ const CATEGORY_MAP = {
   Laptops: "Laptops",
   Phones: "Phones",
   Accessories: "Accessories",
+  Components: "Components",
   "Smart Gadgets": "Accessories",
-  "Best Selling": "Accessories", // fallback only, detectCategory runs first
+  "Best Selling": "Best Selling",
 };
 
-// DROP-IN REPLACEMENT for detectCategory in ScraperTab.jsx
-// Replace the entire detectCategory function (const detectCategory = ...) with this.
+const isGiftCardProduct = (product) => {
+  const title = (product.title || "").toLowerCase();
+  const type = (product.product_type || "").toLowerCase();
+  const tags = Array.isArray(product.tags) ? product.tags.join(" ").toLowerCase() : (product.tags || "").toLowerCase();
+  const raw = `${title} ${type} ${tags}`;
+  return /gift[\s-]*card|voucher/.test(raw);
+};
+
+const getSpecCategories = (product) => {
+  const title = (product.title || "").toLowerCase();
+  const type = (product.product_type || "").toLowerCase();
+  const tags = Array.isArray(product.tags) ? product.tags.join(" ").toLowerCase() : (product.tags || "").toLowerCase();
+  const raw = `${title} ${type} ${tags}`;
+  const cats = new Set();
+
+  if (/\b(?:\d+\s*gb\s*ram|ram\b|ddr[3-5]|lpddr[3-5]|dimm|so-?dimm)\b/.test(raw)) {
+    cats.add("RAM");
+  }
+
+  if (/\b(?:\d+\s*(?:gb|tb)\b|ssd|hdd|nvme|sata|storage|solid state drive|hard drive)\b/.test(raw)) {
+    cats.add("Storage");
+  }
+
+  if (/\b(?:intel|amd|ryzen|snapdragon|qualcomm|mediatek|core i[3579]?|celeron|pentium|xeon|atom|cpu|processor)\b/.test(raw)) {
+    cats.add("Processor");
+  }
+
+  if (/\b(?:windows|chrome os|macos|linux)\b/.test(raw)) {
+    cats.add("OS");
+  }
+
+  if (/\b(?:laptop|notebook|macbook|chromebook|ultrabook|netbook|surface|thinkpad|inspiron|pavilion|zenbook)\b/.test(raw)) {
+    cats.add("LaptopKeyword");
+  }
+
+  if (/\b(?:smartphone|iphone|android|mobile phone|cellphone|phone)\b/.test(raw)) {
+    cats.add("PhoneKeyword");
+  }
+
+  if (/\b(?:motherboard|power supply|psu|cooler|fan|heat sink|heatsink|case|chassis|sound card|network card|wi[-\s]?fi card|graphics card|video card|gpu)\b/.test(raw)) {
+    cats.add("ComponentType");
+  }
+
+  return cats;
+};
 
 const detectCategory = (product, collectionLabel) => {
   try {
@@ -47,73 +91,52 @@ const detectCategory = (product, collectionLabel) => {
       ? product.tags.join(" ")
       : product.tags || "";
     const raw = (type + " " + tagsRaw).toLowerCase();
-
-    // Product title — used for high-confidence title-level checks below.
-    // We do NOT blindly add title to raw because laptop titles contain spec
-    // suffixes like "- 512GB SSD" or "- 16GB RAM" that would cause false positives.
     const title = (product.title || "").toLowerCase();
 
-    // ── TITLE-LEVEL PRE-CHECKS ──────────────────────────────────────────────
-    // These run FIRST and catch components whose product_type/tags offer no
-    // useful signal (e.g. type = "Laptops" because Shopinverse put them in that
-    // collection, even though they're standalone drives, RAM sticks, etc.)
+    if (isGiftCardProduct(product)) return null;
 
-    // Gift cards and vouchers — never a laptop
-    if (/gift[\s-]*card|voucher/.test(title)) return "Accessories";
+    const specCategories = getSpecCategories(product);
+    const nonKeywordSpecs = [...specCategories].filter(
+      (cat) => cat !== "LaptopKeyword" && cat !== "PhoneKeyword" && cat !== "ComponentType",
+    );
+    const hasLaptopKeyword = specCategories.has("LaptopKeyword");
+    const hasPhoneKeyword = specCategories.has("PhoneKeyword");
+    const hasComponentSignal = specCategories.has("ComponentType") || /\b(?:ssd|hdd|nvme|sata|ram|cpu|processor|motherboard|gpu|graphics card|video card|power supply|psu|cooler|fan|heat sink|heatsink|case|chassis)\b/.test(raw);
 
-    // RAM type codes: DDR3/4/5, LPDDR3/4/5, PC4, PC5, DIMM, SO-DIMM
-    // These codes appear in RAM product names but NEVER in laptop product names
-    if (/\b(ddr[3-5]|lpddr[3-5]|pc[45]|dimm|so-?dimm)\b/.test(title)) {
-      return "Accessories";
+    if (/(?:laptop|notebook|macbook|chromebook|ultrabook|netbook|surface|thinkpad|inspiron|pavilion|zenbook)/.test(
+      title,
+    )) {
+      return "Laptops";
     }
 
-    // NVMe — if the title itself says NVMe, the product IS storage
-    // (laptops with NVMe storage don't put "NVMe" in the product title itself)
-    if (/\bnvme\b/.test(title)) return "Accessories";
-
-    // M.2 storage form factor — the period distinguishes it from Apple's "M2" chip
-    // "SK Hynix M.2 SSD" → Accessories  |  "MacBook M2 Pro" → no period → not caught here
-    if (/m\.2/.test(title)) return "Accessories";
-
-    // Standalone SSD vs laptop spec — distinguish by position of capacity:
-    //   Laptop spec:    "Dell XPS 15 — 512GB SSD"  → capacity BEFORE "SSD"
-    //   Standalone SSD: "Samsung SSD | 512GB"       → SSD BEFORE capacity (or no capacity before)
-    // If "SSD" appears without a capacity number immediately preceding it → standalone drive
-    if (/\bssd\b/.test(title) && !/\d+\s*[gt]b\s+ssd/.test(title)) {
-      return "Accessories";
+    if (/\b(?:smartphone|iphone|android|mobile phone|cellphone|phone)\b/.test(title)) {
+      return "Phones";
     }
 
-    // Same logic for standalone HDD
-    if (/\bhdd\b/.test(title) && !/\d+\s*[gt]b\s+hdd/.test(title)) {
-      return "Accessories";
-    }
-
-    // Graphics cards / GPUs — RTX/GTX model numbers, Radeon RX, etc.
     if (
-      /\b(rtx\s*\d{3,4}|gtx\s*\d{3,4}|radeon\s+rx|geforce|graphics\s+card|video\s+card)\b/.test(
-        title,
-      )
+      hasComponentSignal &&
+      nonKeywordSpecs.length <= 1 &&
+      !hasLaptopKeyword &&
+      !hasPhoneKeyword
     ) {
-      return "Accessories";
+      return "Components";
     }
 
-    // Standalone monitor (not a laptop with a display)
-    if (/\bmonitor\b/.test(title) && !/laptop|notebook/.test(title)) {
-      return "Accessories";
-    }
-
-    // ── TYPE / TAGS CHECKS (original logic, kept intact) ───────────────────
-    // Accessories FIRST — catches "Laptop Bag", "Phone Case", "SSD" in product_type, etc.
-    // Note: m2 → m\.2 (fixed to not match Apple M2 chip in tags)
     if (
-      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|keyboard|mouse|mousepad|stand|hub|adapter|screen protector|power bank|powerbank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash drive|pendrive|usb|hdmi|vga|stylus|tripod|gimbal|ring light|ssd|hdd|hard drive|solid state|nvme|sata|m\.2|storage|memory card|sd card|\bram\b|gpu|graphics card|motherboard|monitor|gift card/.test(
+      nonKeywordSpecs.length >= 2 &&
+      (specCategories.has("Processor") || specCategories.has("OS") || hasLaptopKeyword)
+    ) {
+      return "Laptops";
+    }
+
+    if (
+      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|keyboard|mouse|mousepad|stand|hub|adapter|screen protector|power bank|powerbank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash drive|pendrive|usb|hdmi|vga|stylus|tripod|gimbal|ring light|memory card|sd card|monitor|gift card/.test(
         raw,
       )
     ) {
       return "Accessories";
     }
 
-    // Phones
     if (
       /smartphone|iphone|android|mobile phone/.test(type) ||
       /smartphone|iphone|android/.test(raw)
@@ -121,14 +144,13 @@ const detectCategory = (product, collectionLabel) => {
       return "Phones";
     }
 
-    // Laptops
     if (/laptop|notebook|macbook|chromebook|ultrabook|netbook/.test(type)) {
       return "Laptops";
     }
 
-    // Broader tag fallback
-    if (/\bphone\b|\bsmartphone\b/.test(raw)) return "Phones";
-    if (/\blaptop\b|\bnotebook\b/.test(raw)) return "Laptops";
+    if (/phone|smartphone/.test(raw)) return "Phones";
+    if (/laptop|notebook/.test(raw)) return "Laptops";
+    if (collectionLabel === "Best Selling") return "Best Selling";
 
     return CATEGORY_MAP[collectionLabel] || "Accessories";
   } catch (e) {
@@ -698,6 +720,8 @@ export default function ScraperTab() {
                   <option>Laptops</option>
                   <option>Phones</option>
                   <option>Accessories</option>
+                  <option>Components</option>
+                  <option>Best Selling</option>
                 </select>
               </div>
 

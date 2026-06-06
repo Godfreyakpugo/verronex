@@ -15,6 +15,7 @@ function Navbar() {
     { name: "Laptops", path: "/laptops" },
     { name: "Phones", path: "/phones" },
     { name: "Accessories", path: "/accessories" },
+    { name: "Components", path: "/components" },
   ];
 
   const handleSearch = (e) => {

@@ -45,6 +45,22 @@ function App() {
               description="Level up your tech game with our curated selection of premium accessories." 
             />
           } />
+
+          <Route path="/components" element={
+            <Category
+              categoryName="Components"
+              title="Computer Components"
+              description="Browse standalone PC and component parts like RAM, SSDs, motherboards, power supplies and more."
+            />
+          } />
+
+          <Route path="/best-selling" element={
+            <Category
+              categoryName="Best Selling"
+              title="Best Selling"
+              description="Shop the top trending items from our best-selling collection."
+            />
+          } />
           
           <Route path="/product/:id" element={<Product />} />
           <Route path="/search" element={<Search />} />
