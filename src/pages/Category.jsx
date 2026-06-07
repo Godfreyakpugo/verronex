@@ -18,10 +18,13 @@ export default function Category({ categoryName, title, description }) {
     const fetchCategoryProducts = async () => {
       setLoading(true);
 
+      const searchTerm = String(categoryName || "").trim();
+      const pattern = `%${searchTerm}%`;
+
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .ilike("category", categoryName)
+        .ilike("category", pattern)
         .gt("stock", 0);
 
       if (error) {
@@ -163,7 +166,7 @@ export default function Category({ categoryName, title, description }) {
       {/* PRODUCT GRID */}
       {loading ? (
         <div className="text-center py-20 text-fuchsia-500">
-          Loading {categoryName}...
+          Loading {title}...
         </div>
       ) : sortedProducts.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -174,7 +177,7 @@ export default function Category({ categoryName, title, description }) {
       ) : (
         <div className="text-center py-20 border border-white/10 rounded-2xl bg-white/5 backdrop-blur-md">
           <p className="text-fuchsia-400 text-xl font-medium">
-            New {categoryName} arriving soon!
+            New {title} arriving soon!
           </p>
         </div>
       )}

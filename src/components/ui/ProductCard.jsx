@@ -3,17 +3,16 @@ import GlassCard from "./GlassCard";
 
 export default function ProductCard({ product }) {
   // Option 1 Math: Calculate the discounted price dynamically
-  const discountedPrice = product.onSale 
-    ? product.price * (1 - product.discount / 100) 
+  const discountedPrice = product.onSale
+    ? product.price * (1 - product.discount / 100)
     : product.price;
 
   return (
-    <Link 
-      to={`/product/${product.id}`} 
+    <Link
+      to={`/product/${product.id}`}
       className="group block h-full w-full max-w-[320px] mx-auto"
     >
       <GlassCard className="h-full flex flex-col overflow-hidden transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-2xl group-hover:shadow-fuchsia-500/20 group-hover:border-fuchsia-500/50">
-        
         {/* Image Container with Zoom */}
         <div className="relative w-full aspect-square overflow-hidden bg-white/5">
           {product.onSale && (
@@ -32,9 +31,11 @@ export default function ProductCard({ product }) {
         {/* Product Info */}
         <div className="flex flex-col flex-1 p-5 text-left">
           <span className="text-[10px] uppercase tracking-[0.2em] text-fuchsia-500 font-bold mb-1">
-            {product.category}
+            {String(product.category || "")
+              .replace(/-/g, " ")
+              .replace(/\b\w/g, (c) => c.toUpperCase())}
           </span>
-          
+
           <h3 className="text-lg font-semibold text-white leading-tight mb-2 group-hover:text-fuchsia-50">
             {product.name}
           </h3>
@@ -66,7 +67,6 @@ export default function ProductCard({ product }) {
             </div>
           </div>
         </div>
-
       </GlassCard>
     </Link>
   );

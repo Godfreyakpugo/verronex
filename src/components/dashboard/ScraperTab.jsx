@@ -33,12 +33,32 @@ const CATEGORY_MAP = {
   Laptops: "Laptops",
   Phones: "Phones",
   Accessories: "Accessories",
+  "Computer Components": "Computer Components",
   "Smart Gadgets": "Accessories",
   "Best Selling": "Accessories", // fallback only, detectCategory runs first
 };
 
-// DROP-IN REPLACEMENT for detectCategory in ScraperTab.jsx
-// Replace the entire detectCategory function (const detectCategory = ...) with this.
+const normalizeCategory = (value) => {
+  const category = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (/laptop|notebook|macbook|chromebook|ultrabook|netbook/.test(category)) {
+    return "Laptops";
+  }
+  if (/phone|smartphone|iphone|android|mobile phone/.test(category)) {
+    return "Phones";
+  }
+  if (
+    /ram|ddr|lpddr|pc4|pc5|dimm|so-dimm|ssd|hdd|nvme|m\.2|gpu|graphics card|video card|motherboard|mainboard|cpu|processor|power supply|psu|cooler|fan|monitor/.test(
+      category,
+    )
+  ) {
+    return "Computer Components";
+  }
+
+  return "Accessories";
+};
 
 const detectCategory = (product, collectionLabel) => {
   try {
@@ -47,12 +67,12 @@ const detectCategory = (product, collectionLabel) => {
       ? product.tags.join(" ")
       : product.tags || "";
     const raw = (type + " " + tagsRaw).toLowerCase();
+    const title = (product.title || "").toLowerCase();
+    const specCount = Object.keys(parseSpecs(product)).length;
 
     // Product title — used for high-confidence title-level checks below.
     // We do NOT blindly add title to raw because laptop titles contain spec
     // suffixes like "- 512GB SSD" or "- 16GB RAM" that would cause false positives.
-    const title = (product.title || "").toLowerCase();
-
     // ── TITLE-LEVEL PRE-CHECKS ──────────────────────────────────────────────
     // These run FIRST and catch components whose product_type/tags offer no
     // useful signal (e.g. type = "Laptops" because Shopinverse put them in that
@@ -103,14 +123,23 @@ const detectCategory = (product, collectionLabel) => {
     }
 
     // ── TYPE / TAGS CHECKS (original logic, kept intact) ───────────────────
-    // Accessories FIRST — catches "Laptop Bag", "Phone Case", "SSD" in product_type, etc.
-    // Note: m2 → m\.2 (fixed to not match Apple M2 chip in tags)
+    // Accessories FIRST — catches "Laptop Bag", "Phone Case", and smart gadgets.
     if (
-      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|keyboard|mouse|mousepad|stand|hub|adapter|screen protector|power bank|powerbank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash drive|pendrive|usb|hdmi|vga|stylus|tripod|gimbal|ring light|ssd|hdd|hard drive|solid state|nvme|sata|m\.2|storage|memory card|sd card|\bram\b|gpu|graphics card|motherboard|monitor|gift card/.test(
+      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|keyboard|mouse|mousepad|stand|hub|adapter|screen protector|power bank|powerbank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash drive|pendrive|usb|hdmi|vga|stylus|tripod|gimbal|ring light|smartwatch|smart watch/.test(
         raw,
       )
     ) {
       return "Accessories";
+    }
+
+    // Computer components should be separated from laptops and accessories.
+    if (
+      /ram|ddr|lpddr|pc4|pc5|dimm|so-dimm|ssd|hdd|nvme|m\.2|gpu|graphics card|video card|motherboard|mainboard|cpu|processor|power supply|psu|cooler|fan|monitor/.test(
+        raw,
+      ) &&
+      specCount <= 5
+    ) {
+      return "Computer Components";
     }
 
     // Phones
@@ -364,7 +393,7 @@ export default function ScraperTab() {
         name: importName,
         price: Number(importPrice),
         stock: Number(importStock),
-        category: importCategory,
+        category: normalizeCategory(importCategory),
         description: importing.body_html || "",
         capabilities: [],
         limitations: [],
@@ -423,7 +452,7 @@ export default function ScraperTab() {
             name: product.title,
             price: price,
             stock: 1,
-            category: category,
+            category: normalizeCategory(category),
             description: product.body_html || "",
             capabilities: [],
             limitations: [],
@@ -698,6 +727,7 @@ export default function ScraperTab() {
                   <option>Laptops</option>
                   <option>Phones</option>
                   <option>Accessories</option>
+                  <option>Computer Components</option>
                 </select>
               </div>
 
