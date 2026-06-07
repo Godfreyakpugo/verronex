@@ -16,6 +16,7 @@ function Navbar() {
     { name: "Phones", path: "/phones" },
     { name: "Computer Components", path: "/computer-components" },
     { name: "Accessories", path: "/accessories" },
+    { name: "Components", path: "/components" },
   ];
 
   const handleSearch = (e) => {

@@ -33,32 +33,12 @@ const CATEGORY_MAP = {
   Laptops: "Laptops",
   Phones: "Phones",
   Accessories: "Accessories",
-  "Computer Components": "Computer Components",
   "Smart Gadgets": "Accessories",
   "Best Selling": "Accessories", // fallback only, detectCategory runs first
 };
 
-const normalizeCategory = (value) => {
-  const category = String(value || "")
-    .trim()
-    .toLowerCase();
-
-  if (/laptop|notebook|macbook|chromebook|ultrabook|netbook/.test(category)) {
-    return "Laptops";
-  }
-  if (/phone|smartphone|iphone|android|mobile phone/.test(category)) {
-    return "Phones";
-  }
-  if (
-    /ram|ddr|lpddr|pc4|pc5|dimm|so-dimm|ssd|hdd|nvme|m\.2|gpu|graphics card|video card|motherboard|mainboard|cpu|processor|power supply|psu|cooler|fan|monitor/.test(
-      category,
-    )
-  ) {
-    return "Computer Components";
-  }
-
-  return "Accessories";
-};
+// DROP-IN REPLACEMENT for detectCategory in ScraperTab.jsx
+// Replace the entire detectCategory function (const detectCategory = ...) with this.
 
 const detectCategory = (product, collectionLabel) => {
   try {
@@ -67,12 +47,12 @@ const detectCategory = (product, collectionLabel) => {
       ? product.tags.join(" ")
       : product.tags || "";
     const raw = (type + " " + tagsRaw).toLowerCase();
-    const title = (product.title || "").toLowerCase();
-    const specCount = Object.keys(parseSpecs(product)).length;
 
     // Product title — used for high-confidence title-level checks below.
     // We do NOT blindly add title to raw because laptop titles contain spec
     // suffixes like "- 512GB SSD" or "- 16GB RAM" that would cause false positives.
+    const title = (product.title || "").toLowerCase();
+
     // ── TITLE-LEVEL PRE-CHECKS ──────────────────────────────────────────────
     // These run FIRST and catch components whose product_type/tags offer no
     // useful signal (e.g. type = "Laptops" because Shopinverse put them in that
@@ -103,18 +83,21 @@ const detectCategory = (product, collectionLabel) => {
       return "Accessories";
     }
 
-    // Same logic for standalone HDD
-    if (/\bhdd\b/.test(title) && !/\d+\s*[gt]b\s+hdd/.test(title)) {
-      return "Accessories";
-    }
-
-    // Graphics cards / GPUs — RTX/GTX model numbers, Radeon RX, etc.
     if (
-      /\b(rtx\s*\d{3,4}|gtx\s*\d{3,4}|radeon\s+rx|geforce|graphics\s+card|video\s+card)\b/.test(
+      /\b(?:smartphone|iphone|android|mobile phone|cellphone|phone)\b/.test(
         title,
       )
     ) {
-      return "Accessories";
+      return "Phones";
+    }
+
+    if (
+      hasComponentSignal &&
+      nonKeywordSpecs.length <= 1 &&
+      !hasLaptopKeyword &&
+      !hasPhoneKeyword
+    ) {
+      return "Components";
     }
 
     // Standalone monitor (not a laptop with a display)
@@ -123,9 +106,10 @@ const detectCategory = (product, collectionLabel) => {
     }
 
     // ── TYPE / TAGS CHECKS (original logic, kept intact) ───────────────────
-    // Accessories FIRST — catches "Laptop Bag", "Phone Case", and smart gadgets.
+    // Accessories FIRST — catches "Laptop Bag", "Phone Case", "SSD" in product_type, etc.
+    // Note: m2 → m\.2 (fixed to not match Apple M2 chip in tags)
     if (
-      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|keyboard|mouse|mousepad|stand|hub|adapter|screen protector|power bank|powerbank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash drive|pendrive|usb|hdmi|vga|stylus|tripod|gimbal|ring light|smartwatch|smart watch/.test(
+      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|keyboard|mouse|mousepad|stand|hub|adapter|screen protector|power bank|powerbank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash drive|pendrive|usb|hdmi|vga|stylus|tripod|gimbal|ring light|ssd|hdd|hard drive|solid state|nvme|sata|m\.2|storage|memory card|sd card|\bram\b|gpu|graphics card|motherboard|monitor|gift card/.test(
         raw,
       )
     ) {
@@ -142,7 +126,6 @@ const detectCategory = (product, collectionLabel) => {
       return "Computer Components";
     }
 
-    // Phones
     if (
       /smartphone|iphone|android|mobile phone/.test(type) ||
       /smartphone|iphone|android/.test(raw)
@@ -150,14 +133,13 @@ const detectCategory = (product, collectionLabel) => {
       return "Phones";
     }
 
-    // Laptops
     if (/laptop|notebook|macbook|chromebook|ultrabook|netbook/.test(type)) {
       return "Laptops";
     }
 
-    // Broader tag fallback
-    if (/\bphone\b|\bsmartphone\b/.test(raw)) return "Phones";
-    if (/\blaptop\b|\bnotebook\b/.test(raw)) return "Laptops";
+    if (/phone|smartphone/.test(raw)) return "Phones";
+    if (/laptop|notebook/.test(raw)) return "Laptops";
+    if (collectionLabel === "Best Selling") return "Best Selling";
 
     return CATEGORY_MAP[collectionLabel] || "Accessories";
   } catch (e) {
@@ -727,7 +709,6 @@ export default function ScraperTab() {
                   <option>Laptops</option>
                   <option>Phones</option>
                   <option>Accessories</option>
-                  <option>Computer Components</option>
                 </select>
               </div>
 

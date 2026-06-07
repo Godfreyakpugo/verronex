@@ -65,6 +65,17 @@ function App() {
           }
         />
 
+        <Route
+          path="/best-selling"
+          element={
+            <Category
+              categoryName="Best Selling"
+              title="Best Selling"
+              description="Shop the top trending items from our best-selling collection."
+            />
+          }
+        />
+
         <Route path="/product/:id" element={<Product />} />
         <Route path="/search" element={<Search />} />
         <Route path="/cart" element={<Cart />} />

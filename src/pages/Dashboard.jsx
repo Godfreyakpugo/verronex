@@ -445,6 +445,7 @@ export default function Dashboard() {
                 <option>Phones</option>
                 <option>Accessories</option>
                 <option>Computer Components</option>
+                <option>Best Selling</option>
               </select>
 
               {/* MARKETING DESCRIPTION */}
