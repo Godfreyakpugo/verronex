@@ -34,11 +34,20 @@ const CATEGORY_MAP = {
   Phones: "Phones",
   Accessories: "Accessories",
   "Smart Gadgets": "Accessories",
-  "Best Selling": "Accessories", // fallback only, detectCategory runs first
+  "Best Selling": null, // no safe default — detect from product data
 };
 
-// DROP-IN REPLACEMENT for detectCategory in ScraperTab.jsx
-// Replace the entire detectCategory function (const detectCategory = ...) with this.
+// Sanitises any category string before it hits the DB.
+const normalizeCategory = (raw) => {
+  const map = {
+    laptops: "Laptops",
+    phones: "Phones",
+    accessories: "Accessories",
+    "computer components": "Computer Components",
+    "best selling": "Best Selling",
+  };
+  return map[(raw || "").trim().toLowerCase()] ?? "Accessories";
+};
 
 const detectCategory = (product, collectionLabel) => {
   try {
@@ -47,103 +56,86 @@ const detectCategory = (product, collectionLabel) => {
       ? product.tags.join(" ")
       : product.tags || "";
     const raw = (type + " " + tagsRaw).toLowerCase();
-
-    // Product title — used for high-confidence title-level checks below.
-    // We do NOT blindly add title to raw because laptop titles contain spec
-    // suffixes like "- 512GB SSD" or "- 16GB RAM" that would cause false positives.
     const title = (product.title || "").toLowerCase();
 
-    // ── TITLE-LEVEL PRE-CHECKS ──────────────────────────────────────────────
-    // These run FIRST and catch components whose product_type/tags offer no
-    // useful signal (e.g. type = "Laptops" because Shopinverse put them in that
-    // collection, even though they're standalone drives, RAM sticks, etc.)
-
-    // Gift cards and vouchers — never a laptop
+    // ── 1. GIFT CARDS ────────────────────────────────────────────────────────
     if (/gift[\s-]*card|voucher/.test(title)) return "Accessories";
 
-    // RAM type codes: DDR3/4/5, LPDDR3/4/5, PC4, PC5, DIMM, SO-DIMM
-    // These codes appear in RAM product names but NEVER in laptop product names
-    if (/\b(ddr[3-5]|lpddr[3-5]|pc[45]|dimm|so-?dimm)\b/.test(title)) {
-      return "Accessories";
-    }
+    // ── 2. COMPUTER COMPONENTS — title-level (highest confidence) ────────────
+    // These patterns in a product TITLE mean the product IS the component,
+    // not a device that contains one.
 
-    // NVMe — if the title itself says NVMe, the product IS storage
-    // (laptops with NVMe storage don't put "NVMe" in the product title itself)
-    if (/\bnvme\b/.test(title)) return "Accessories";
-
-    // M.2 storage form factor — the period distinguishes it from Apple's "M2" chip
-    // "SK Hynix M.2 SSD" → Accessories  |  "MacBook M2 Pro" → no period → not caught here
-    if (/m\.2/.test(title)) return "Accessories";
-
-    // Standalone SSD vs laptop spec — distinguish by position of capacity:
-    //   Laptop spec:    "Dell XPS 15 — 512GB SSD"  → capacity BEFORE "SSD"
-    //   Standalone SSD: "Samsung SSD | 512GB"       → SSD BEFORE capacity (or no capacity before)
-    // If "SSD" appears without a capacity number immediately preceding it → standalone drive
-    if (/\bssd\b/.test(title) && !/\d+\s*[gt]b\s+ssd/.test(title)) {
-      return "Accessories";
-    }
-
-    if (
-      /\b(?:smartphone|iphone|android|mobile phone|cellphone|phone)\b/.test(
-        title,
-      )
-    ) {
-      return "Phones";
-    }
-
-    if (
-      hasComponentSignal &&
-      nonKeywordSpecs.length <= 1 &&
-      !hasLaptopKeyword &&
-      !hasPhoneKeyword
-    ) {
-      return "Components";
-    }
-
-    // Standalone monitor (not a laptop with a display)
-    if (/\bmonitor\b/.test(title) && !/laptop|notebook/.test(title)) {
-      return "Accessories";
-    }
-
-    // ── TYPE / TAGS CHECKS (original logic, kept intact) ───────────────────
-    // Accessories FIRST — catches "Laptop Bag", "Phone Case", "SSD" in product_type, etc.
-    // Note: m2 → m\.2 (fixed to not match Apple M2 chip in tags)
-    if (
-      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|keyboard|mouse|mousepad|stand|hub|adapter|screen protector|power bank|powerbank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash drive|pendrive|usb|hdmi|vga|stylus|tripod|gimbal|ring light|ssd|hdd|hard drive|solid state|nvme|sata|m\.2|storage|memory card|sd card|\bram\b|gpu|graphics card|motherboard|monitor|gift card/.test(
-        raw,
-      )
-    ) {
-      return "Accessories";
-    }
-
-    // Computer components should be separated from laptops and accessories.
-    if (
-      /ram|ddr|lpddr|pc4|pc5|dimm|so-dimm|ssd|hdd|nvme|m\.2|gpu|graphics card|video card|motherboard|mainboard|cpu|processor|power supply|psu|cooler|fan|monitor/.test(
-        raw,
-      ) &&
-      specCount <= 5
-    ) {
+    // RAM sticks — DDR codes in the title = this is the RAM module itself
+    if (/\b(ddr[3-5]|lpddr[3-5]|pc[45]|dimm|so-?dimm)\b/.test(title))
       return "Computer Components";
-    }
 
+    // NVMe / M.2 storage drives (guard: skip if also mentions laptop/notebook)
+    if (/\bnvme\b/.test(title) && !/laptop|notebook|macbook/.test(title))
+      return "Computer Components";
+    if (/m\.2/.test(title) && !/laptop|notebook|macbook/.test(title))
+      return "Computer Components";
+
+    // Standalone SSD — "Samsung 870 EVO SSD" has no capacity before SSD.
+    // Laptop spec — "Dell XPS - 512GB SSD" HAS capacity before SSD → ignored.
+    if (/\bssd\b/.test(title) && !/\d+\s*[gt]b\s+ssd/i.test(title))
+      return "Computer Components";
+
+    // Standalone HDD — same logic as SSD above
+    if (/\bhdd\b/.test(title) && !/\d+\s*[gt]b\s+hdd/i.test(title))
+      return "Computer Components";
+
+    // ── 3. STANDALONE MONITOR ────────────────────────────────────────────────
+    if (/\bmonitor\b/.test(title) && !/laptop|notebook/.test(title))
+      return "Accessories";
+
+    // ── 4. ACCESSORIES — product_type / tags ─────────────────────────────────
     if (
-      /smartphone|iphone|android|mobile phone/.test(type) ||
-      /smartphone|iphone|android/.test(raw)
-    ) {
+      /bag|case|cover|charger|cable|earphone|earbuds|headphone|headset|mousepad|stand|hub|adapter|screen.?protector|power.?bank|tempered|sleeve|pouch|strap|dock|webcam|speaker|flash.?drive|pendrive|\busb\b|hdmi|vga|stylus|tripod|gimbal|ring.?light|memory.?card|sd.?card|gift.?card/.test(
+        raw,
+      )
+    )
+      return "Accessories";
+
+    // ── 5. COMPUTER COMPONENTS — product_type / tags ─────────────────────────
+    // Only fires when the product isn't already identified as a laptop/phone
+    if (!/laptop|notebook|macbook|smartphone|iphone|android/.test(raw)) {
+      if (
+        /\b(ddr[3-5]|lpddr[3-5]|pc[45]|dimm|so-?dimm|nvme|sata)\b/.test(raw) ||
+        /\b(gpu|graphics.?card|video.?card|geforce|radeon|rtx|gtx)\b/.test(
+          raw,
+        ) ||
+        /\b(motherboard|mainboard)\b/.test(raw) ||
+        /\b(power.?supply|\bpsu\b)\b/.test(raw)
+      )
+        return "Computer Components";
+    }
+
+    // ── 6. PHONES ────────────────────────────────────────────────────────────
+    if (
+      /smartphone|iphone|android|mobile.?phone/.test(type) ||
+      /smartphone|iphone|android/.test(raw) ||
+      /\b(smartphone|iphone|android|mobile phone|cellphone)\b/.test(title)
+    )
       return "Phones";
-    }
 
-    if (/laptop|notebook|macbook|chromebook|ultrabook|netbook/.test(type)) {
+    // ── 7. LAPTOPS ───────────────────────────────────────────────────────────
+    if (
+      /laptop|notebook|macbook|chromebook|ultrabook|netbook/.test(type) ||
+      /laptop|notebook|macbook|chromebook|ultrabook/.test(raw) ||
+      /laptop|notebook|macbook|chromebook|ultrabook/.test(title)
+    )
       return "Laptops";
-    }
 
-    if (/phone|smartphone/.test(raw)) return "Phones";
-    if (/laptop|notebook/.test(raw)) return "Laptops";
-    if (collectionLabel === "Best Selling") return "Best Selling";
-
-    return CATEGORY_MAP[collectionLabel] || "Accessories";
+    // ── 8. COLLECTION-AWARE FALLBACK ─────────────────────────────────────────
+    // Only trust unambiguous collections. Best Selling / Smart Gadgets
+    // are mixed bags — anything unclassified there defaults to Accessories.
+    if (collectionLabel === "Laptops") return "Laptops";
+    if (collectionLabel === "Phones") return "Phones";
+    return "Accessories";
   } catch (e) {
-    return CATEGORY_MAP[collectionLabel] || "Accessories";
+    if (collectionLabel === "Laptops") return "Laptops";
+    if (collectionLabel === "Phones") return "Phones";
+    return "Accessories";
   }
 };
 
@@ -709,6 +701,7 @@ export default function ScraperTab() {
                   <option>Laptops</option>
                   <option>Phones</option>
                   <option>Accessories</option>
+                  <option>Computer Components</option>
                 </select>
               </div>
 
